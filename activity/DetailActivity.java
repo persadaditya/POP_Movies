@@ -1,8 +1,8 @@
 package com.app.phedev.popmovie.activity;
 
 import android.content.ContentValues;
-import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -10,6 +10,9 @@ import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.widget.LinearLayoutManager;
@@ -28,13 +31,13 @@ import com.app.phedev.popmovie.adapter.TrailerAdapter;
 import com.app.phedev.popmovie.data.MovieContract;
 import com.app.phedev.popmovie.data.MovieDBHelper;
 import com.app.phedev.popmovie.data.MovieProvider;
-import com.app.phedev.popmovie.retrofit.Client;
-import com.app.phedev.popmovie.retrofit.Service;
 import com.app.phedev.popmovie.pojo.Movie;
 import com.app.phedev.popmovie.pojo.Review;
 import com.app.phedev.popmovie.pojo.ReviewResponse;
 import com.app.phedev.popmovie.pojo.Trailer;
 import com.app.phedev.popmovie.pojo.TrailerResponse;
+import com.app.phedev.popmovie.retrofit.Client;
+import com.app.phedev.popmovie.retrofit.Service;
 import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
@@ -44,7 +47,8 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class DetailActivity extends AppCompatActivity {
+public class DetailActivity extends AppCompatActivity implements
+        LoaderManager.LoaderCallbacks<Cursor>{
     TextView movieNames, plotSynopsis, userRating, releaseDate;
     ImageView posterImg;
     private RecyclerView recyclerView1, recyclerView2;
@@ -55,13 +59,30 @@ public class DetailActivity extends AppCompatActivity {
     private MovieDBHelper movieDBHelper;
     private Movie favorite;
     private final AppCompatActivity activity = DetailActivity.this;
+    private static final int LOADER_DET = 500;
     private MovieProvider movieProvider;
+
+    public static final String[] TABLE_PROJECTION = {
+            MovieContract.FavoriteEntry.COLUMN_MOVIEID,
+            MovieContract.FavoriteEntry.COLUMN_TITLE,
+            MovieContract.FavoriteEntry.COLUMN_DATE,
+            MovieContract.FavoriteEntry.COLUMN_USERRATING,
+            MovieContract.FavoriteEntry.COLUMN_POSTER_PATH,
+            MovieContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS
+    };
+
+    public static final int INDEX_IDMOVIE = 1;
+    public static final int INDEX_TITLE = 2;
+    public static final int INDEX_RATING = 3;
+    public static final int INDEX_DATE = 4;
+    public static final int INDEX_POSTER = 5;
+    public static final int INDEX_PLOT = 6;
 
     Movie movie;
     int movie_id;
     String thumbnail, movieName, synopsis, dateOfRelease, ratings;
     FloatingActionButton fabut;
-    public static final String EXTRA_ID = "movie_id";
+    private Uri mUri;
 
 
     @Override
@@ -69,7 +90,9 @@ public class DetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail);
 
-        movie_id = getIntent().getIntExtra(EXTRA_ID,0);
+        mUri = getIntent().getData();
+        if (mUri == null) throw new NullPointerException("URI for DetailActivity cannot be null");
+
 
         Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -84,36 +107,9 @@ public class DetailActivity extends AppCompatActivity {
         userRating = (TextView)findViewById(R.id.rating);
         releaseDate = (TextView)findViewById(R.id.date);
 
-        Intent intentThatStartedThisActivity = getIntent();
-        if (intentThatStartedThisActivity.hasExtra("movies")){
 
-            movie = getIntent().getParcelableExtra("movies");
+        getSupportLoaderManager().initLoader(LOADER_DET,null,this);
 
-            thumbnail = movie.getPosterPath();
-            movieName = movie.getOriTitle();
-            synopsis = movie.getPlot();
-            ratings = Double.toString(movie.getVoteAvg());
-            dateOfRelease = movie.getRelease();
-            movie_id = movie.getId();
-            Log.v("ID DETAIL MOVIE =", String.valueOf(movie_id));
-
-            String poster = thumbnail;
-
-            Glide.with(this)
-                    .load(poster)
-                    .into(posterImg);
-
-            movieNames.setText(movieName);
-            plotSynopsis.setText(synopsis);
-            userRating.setText(ratings);
-            releaseDate.setText(dateOfRelease);
-
-        }else{
-            Toast.makeText(this,"No DATA",Toast.LENGTH_LONG).show();
-        }
-
-        initViews();
-        initViews2();
     }
 
 
@@ -154,9 +150,7 @@ public class DetailActivity extends AppCompatActivity {
         trailerAdapter = new TrailerAdapter(this, trailerList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView1.setLayoutManager(layoutManager);
-        //recyclerView1.setAdapter(trailerAdapter);
         loadJSON();
-        trailerAdapter.notifyDataSetChanged();
     }
 
     private void initViews2(){
@@ -165,9 +159,7 @@ public class DetailActivity extends AppCompatActivity {
         reviewAdapter = new ReviewAdapter(this, reviewList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView2.setLayoutManager(layoutManager);
-        //recyclerView2.setAdapter(reviewAdapter);
         loadJSON2();
-        reviewAdapter.notifyDataSetChanged();
     }
 
     private void loadJSON(){
@@ -177,7 +169,7 @@ public class DetailActivity extends AppCompatActivity {
                 return;
             }
             Client clients = new Client();
-            Service apiService = clients.getClient().create(Service.class);
+            Service apiService = Client.getClient().create(Service.class);
             Call<TrailerResponse> call = apiService.getMovieTrailer(movie_id, BuildConfig.THE_MOVIE_DB_API);
             call.enqueue(new Callback<TrailerResponse>() {
                 @Override
@@ -185,6 +177,8 @@ public class DetailActivity extends AppCompatActivity {
                     List<Trailer> trailers = response.body().getResults();
                     recyclerView1.setAdapter(new TrailerAdapter(getApplicationContext(),trailers));
                     recyclerView1.smoothScrollToPosition(0);
+                    trailerAdapter.notifyDataSetChanged();
+
                 }
 
                 @Override
@@ -207,7 +201,7 @@ public class DetailActivity extends AppCompatActivity {
                 return;
             }
             Client clients = new Client();
-            Service apiService = clients.getClient().create(Service.class);
+            Service apiService = Client.getClient().create(Service.class);
             Call<ReviewResponse> call = apiService.getMovieReview(movie_id, BuildConfig.THE_MOVIE_DB_API);
             call.enqueue(new Callback<ReviewResponse>() {
                 @Override
@@ -215,6 +209,7 @@ public class DetailActivity extends AppCompatActivity {
                     List<Review> reviews = response.body().getResults();
                     recyclerView2.setAdapter(new ReviewAdapter(getApplicationContext(),reviews));
                     recyclerView2.smoothScrollToPosition(0);
+                    reviewAdapter.notifyDataSetChanged();
                     Log.d("adapter review", String.valueOf(reviews));
                 }
 
@@ -244,7 +239,7 @@ public class DetailActivity extends AppCompatActivity {
             SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
             editor.putBoolean("Favorite Added", true);
             editor.apply();
-            saveFavorite();
+            //saveFavorite();
             //it still error whenever I change by setImageResources or setBackground
             //fabut.setBackgroundColor(Color.YELLOW);
             Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
@@ -291,4 +286,57 @@ public class DetailActivity extends AppCompatActivity {
         finish();
     }
 
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        switch (id){
+            case LOADER_DET:
+                return new CursorLoader(DetailActivity.this,
+                       mUri,
+                        null,
+                        null,
+                        null,
+                        null);
+
+            default:
+                throw new RuntimeException("Loader Not Implemented: " + id);
+        }
+
+
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        boolean cursorHasValidData = false;
+        if (data != null && data.moveToFirst()) {
+            /* We have valid data, continue on to bind the data to the UI */
+            cursorHasValidData = true;
+        }
+
+        if (!cursorHasValidData) {
+            /* No data to display, simply return and do nothing */
+            return;
+        }
+
+        movie_id = data.getInt(INDEX_IDMOVIE);
+        movieNames.setText(data.getString(INDEX_TITLE));
+        Double rate = data.getDouble(INDEX_RATING);
+        userRating.setText(String.valueOf(rate));
+        releaseDate.setText(data.getString(INDEX_DATE));
+        plotSynopsis.setText(data.getString(INDEX_PLOT));
+        String poster = data.getString(INDEX_POSTER);
+
+        Glide.with(this)
+                .load(poster)
+                .into(posterImg);
+
+        initViews();
+        initViews2();
+
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+
+    }
 }

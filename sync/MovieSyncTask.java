@@ -75,7 +75,8 @@ public class MovieSyncTask {
                 @Override
                 public void onFailure(Call<MovieResponse> call, Throwable t) {
                     Log.d("Error",t.getMessage());
-                    Toast.makeText(context,"Fail to Connect Data",Toast.LENGTH_LONG).show();
+                    Toast.makeText(context,"Fail to Connect Data, Server maybe down or no internet connection detected"
+                            ,Toast.LENGTH_LONG).show();
                     //pDialog.dismiss();
 
                 }
@@ -133,7 +134,8 @@ public class MovieSyncTask {
                 @Override
                 public void onFailure(Call<MovieResponse> call, Throwable t) {
                     Log.d("Error",t.getMessage());
-                    Toast.makeText(context,"Fail to Connect Data",Toast.LENGTH_LONG).show();
+                    Toast.makeText(context,"Fail to Connect Data, Server maybe down or no internet connection detected"
+                            ,Toast.LENGTH_LONG).show();
 
                 }
             });
@@ -142,10 +144,6 @@ public class MovieSyncTask {
             Toast.makeText(context,e.toString(),Toast.LENGTH_LONG).show();
 
         }
-
-        //FETCH DATA TRAILER FOR MOVIE
-
-
     }
 }
 

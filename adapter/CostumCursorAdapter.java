@@ -113,8 +113,6 @@ public class CostumCursorAdapter extends RecyclerView.Adapter<CostumCursorAdapte
             txtRelease = (TextView)itemView.findViewById(R.id.tx_date);
             thumbnail_fav = (ImageView)itemView.findViewById(R.id.img_row);
 
-
-
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {

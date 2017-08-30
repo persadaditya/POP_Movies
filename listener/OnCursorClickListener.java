@@ -5,5 +5,5 @@ package com.app.phedev.popmovie.listener;
  */
 
 public interface OnCursorClickListener {
-    void onCursorClickListener(int movie_id);
+    void onCursorClickListener(long movie_id);
 }

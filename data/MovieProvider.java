@@ -35,6 +35,7 @@ public class MovieProvider extends ContentProvider {
     public static final int CODE_MOVIE_RATED = 102;
     public static final int CODE_MOVIE_ID_POP = 201;
     public static final int CODE_MOVIE_ID_RAT = 202;
+    public static final int CODE_MOVIE_ID_FAV = 200;
 
     @Override
     public boolean onCreate() {
@@ -51,6 +52,7 @@ public class MovieProvider extends ContentProvider {
         matcher.addURI(authority, MovieContract.PATH_MOVIE, CODE_MOVIE );
         matcher.addURI(authority, MovieContract.PATH_MOVIE2, CODE_MOVIE_POPULAR );
         matcher.addURI(authority, MovieContract.PATH_MOVIE3, CODE_MOVIE_RATED);
+        matcher.addURI(authority, MovieContract.PATH_MOVIE + "/#", CODE_MOVIE_ID_FAV);
         matcher.addURI(authority, MovieContract.PATH_MOVIE2 +"/#", CODE_MOVIE_ID_POP);
         matcher.addURI(authority, MovieContract.PATH_MOVIE3 + "/#", CODE_MOVIE_ID_RAT);
 
@@ -128,8 +130,11 @@ public class MovieProvider extends ContentProvider {
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
         Cursor cursor;
 
-        final SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        final SQLiteDatabase db = mOpenHelper.getReadableDatabase();
         int match = sUriMatcher.match(uri);
+
+        String [] selectionArguments = new String[]{uri.getLastPathSegment()};
+
 
         switch (match){
             case CODE_MOVIE:
@@ -159,6 +164,34 @@ public class MovieProvider extends ContentProvider {
                         null,
                         sortOrder);
                 break;
+            case CODE_MOVIE_ID_FAV:
+                cursor = db.query(TABLE_NAME,
+                        null,
+                        MovieContract.FavoriteEntry.COLUMN_MOVIEID + " = ? ",
+                        selectionArguments,
+                        null,
+                        null,
+                        sortOrder);
+                break;
+            case CODE_MOVIE_ID_POP:
+                cursor = db.query(TABLE_NAME2,
+                        null,
+                        MovieContract.FavoriteEntry.COLUMN_MOVIEID +  " = ? ",
+                        selectionArguments,
+                        null,
+                        null,
+                        sortOrder);
+                break;
+            case CODE_MOVIE_ID_RAT:
+                cursor = db.query(TABLE_NAME3,
+                        null,
+                        MovieContract.FavoriteEntry.COLUMN_MOVIEID + " = ?",
+                        selectionArguments,
+                        null,
+                        null,
+                        sortOrder);
+                break;
+
             default:
                 throw new UnsupportedOperationException("Unknown uri" + uri);
         }

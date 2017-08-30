@@ -15,8 +15,6 @@ public final class MovieContract {
     public static final String PATH_MOVIE = "favorites";
     public static final String PATH_MOVIE2 = "popular";
     public static final String PATH_MOVIE3 = "rating";
-    public static final String PATH_TRAILER = "trailer";
-    public static final String PATH_REVIEW = "review";
 
     public static final class FavoriteEntry implements BaseColumns {
 
@@ -25,8 +23,6 @@ public final class MovieContract {
         public static final String TABLE_NAME = "favorites";
         public static final String TABLE_NAME2 = "popular";
         public static final String TABLE_NAME3 = "rating";
-        public static final String TABLE_TRAILER = "trailer";
-        public static final String TABLE_REVIEW = "review";
 
         // Name of Column
         public static final String COLUMN_MOVIEID = "movieid";
@@ -35,11 +31,6 @@ public final class MovieContract {
         public static final String COLUMN_USERRATING = "userrating";
         public static final String COLUMN_POSTER_PATH = "posterpath";
         public static final String COLUMN_PLOT_SYNOPSIS = "overview";
-        public static final String COLUMN_AUTHOR = "author";
-        public static final String COLUMN_CONTENT = "content";
-        public static final String COLUMN_KEY = "key";
-        public static final String COLUMN_NAME = "name";
-
 
         //Content URI
         public static final Uri CONTENT_URI = BASE_CONTENT_URI.buildUpon()
@@ -54,13 +45,21 @@ public final class MovieContract {
                 .appendPath(PATH_MOVIE3)
                 .build();
 
-        public static final Uri CONTENT_URI_TRAILER = BASE_CONTENT_URI.buildUpon()
-                .appendPath(PATH_TRAILER)
-                .build();
-
-        public static final Uri CONTENT_URI_REVIEW = BASE_CONTENT_URI.buildUpon()
-                .appendPath(PATH_REVIEW)
-                .build();
+        public static Uri buildMovieFavUriWithID(long movie_id) {
+            return CONTENT_URI.buildUpon()
+                    .appendPath(Long.toString(movie_id))
+                    .build();
+        }
+        public static Uri buildMoviePopUriWithID(long movie_id) {
+            return CONTENT_URI_POP.buildUpon()
+                    .appendPath(Long.toString(movie_id))
+                    .build();
+        }
+        public static Uri buildMovieRatUriWithID(long movie_id) {
+            return CONTENT_URI_RATED.buildUpon()
+                    .appendPath(Long.toString(movie_id))
+                    .build();
+        }
 
         public static final String CONTENT_DIR_FAV =
                 ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + CONTENT_AUTHORITY + "/" + TABLE_NAME;
@@ -71,11 +70,6 @@ public final class MovieContract {
         public static final String CONTENT_DIR_RATED =
                 ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + CONTENT_AUTHORITY + "/" + TABLE_NAME3;
 
-        public static final String CONTENT_DIR_TRAILER =
-                ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + CONTENT_AUTHORITY + "/" + TABLE_TRAILER;
-
-        public static final String CONTENT_DIR_REVIEW =
-                ContentResolver.CURSOR_DIR_BASE_TYPE + "/" + CONTENT_AUTHORITY + "/" + TABLE_REVIEW;
     }
 
 

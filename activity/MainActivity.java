@@ -10,10 +10,8 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Parcelable;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
-import android.support.v4.widget.SimpleCursorAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -35,8 +33,6 @@ import com.app.phedev.popmovie.sync.MovieSyncUtils;
 
 import java.util.ArrayList;
 
-import static com.app.phedev.popmovie.activity.DetailActivity.EXTRA_ID;
-
 
 @SuppressWarnings("unchecked")
 public class MainActivity extends AppCompatActivity implements
@@ -48,26 +44,20 @@ public class MainActivity extends AppCompatActivity implements
     private ArrayList<Movie> movieList;
     ProgressBar mLoadingIndicator;
     public static final String LOG_TAG = CostumCursorAdapter.class.getName();
-    private static final String BUNDLE_RECYCLER_STATE = "recyclerview.state";
-    private static final String BUNDLE_ADAPTER_DATA = "adapter_data";
-    private static final String BUNDLE_ITEM_VIEW_POSITION = "item_view_position";
-    private static final String STATE_ITEMS = "items";
-    private Parcelable mListState;
     private LinearLayoutManager layoutManager;
     private static final int TASK_LOADER_ID = 100;
     private static final int TASK_LOADER_POP = 101;
     private static final int TASK_LOADER_RAT = 102;
+    private static int loader;
     public static final String[] TABLE_PROJECTION = {
             MovieContract.FavoriteEntry._ID,
             MovieContract.FavoriteEntry.COLUMN_MOVIEID,
             MovieContract.FavoriteEntry.COLUMN_TITLE,
             MovieContract.FavoriteEntry.COLUMN_DATE,
             MovieContract.FavoriteEntry.COLUMN_USERRATING,
-            MovieContract.FavoriteEntry.COLUMN_POSTER_PATH
+            MovieContract.FavoriteEntry.COLUMN_POSTER_PATH,
+            MovieContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS
     };
-    private static boolean dataDownloaded = false;
-    private static Cursor oldCursor;
-    SimpleCursorAdapter cursorAdapter;
 
 
 
@@ -76,22 +66,10 @@ public class MainActivity extends AppCompatActivity implements
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
-        if (savedInstanceState != null ){
-            checkPreferences();
-            dataDownloaded = savedInstanceState.getBoolean(BUNDLE_ADAPTER_DATA);
-
-            if (mListState != null){
-                mListState = savedInstanceState.getParcelable(BUNDLE_RECYCLER_STATE);
-                layoutManager.onRestoreInstanceState(mListState);
-            }
-
-        }else {
-
             initViews();
             showLoading();
             MovieSyncUtils.initialize(this);
-        }
+
     }
 
     public Activity getActivity(){
@@ -107,11 +85,6 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void initViews() {
-        //pDialog = new ProgressDialog(this);
-        //pDialog.setMessage("Fetch Your Movie");
-        //pDialog.show();
-        //pDialog.setCancelable(false);
-
         mRecyclerView = (RecyclerView)findViewById(R.id.grid_list);
         mLoadingIndicator = (ProgressBar)findViewById(R.id.pb_loading_indicator);
 
@@ -122,37 +95,16 @@ public class MainActivity extends AppCompatActivity implements
         mRecyclerView.setLayoutManager(layoutManager);
 
         movieList = new ArrayList<>();
-        //moviePopAdapter = new MoviePopAdapter(this, movieList);
         costumCursorAdapter = new CostumCursorAdapter(null, this, this);
         mRecyclerView.setItemAnimator(new DefaultItemAnimator());
 
         mRecyclerView.setAdapter(costumCursorAdapter);
-        //moviePopAdapter.notifyDataSetChanged();
 
         LoaderManager.enableDebugLogging(true);
 
         checkPreferences();
     }
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        //outState.putIntArray("ARTICLE_SCROLL_POSITION",
-               // new int[]{ scrView.getScrollX(), scrView.getScrollY()});
-        outState.putSerializable(STATE_ITEMS, movieList);
-       // outState.putParcelableArrayList(BUNDLE_ADAPTER_DATA, movieList);
-       // outState.putParcelableArrayList("TES", (ArrayList<? extends Parcelable>) moviePopAdapter.getMoviesData());
-        outState.putBoolean(BUNDLE_ADAPTER_DATA, dataDownloaded);
-        oldCursor = costumCursorAdapter.swapCursor(null);
-
-        mListState = layoutManager.onSaveInstanceState();
-        if (mListState != null){
-            outState.putParcelable(BUNDLE_RECYCLER_STATE, mListState);
-        }
-        outState.putInt(BUNDLE_ITEM_VIEW_POSITION, layoutManager.findFirstCompletelyVisibleItemPosition());
-
-
-    }
 
     private void showLoading() {
         /* Then, hide the weather data */
@@ -191,7 +143,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private void checkPreferences(){
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        int loader = TASK_LOADER_POP;
+
         String sortOrder = preferences.getString(
                 this.getString(R.string.sort_order_key),
                 this.getString(R.string.most_popular)
@@ -199,7 +151,6 @@ public class MainActivity extends AppCompatActivity implements
         if (sortOrder.equals(this.getString(R.string.most_popular))){
             Log.d(LOG_TAG,"sort by most popular");
             loader = TASK_LOADER_POP;
-            //loadJSON();
             getSupportLoaderManager().initLoader(loader,null,this);
         }else if (sortOrder.equals(this.getString(R.string.favorite))){
             Log.d(LOG_TAG, "sort by favorite movies");
@@ -208,94 +159,17 @@ public class MainActivity extends AppCompatActivity implements
         }
         else{
             Log.d(LOG_TAG,"sort by vote average");
-            //loadJSONrated();
             loader = TASK_LOADER_RAT;
             getSupportLoaderManager().initLoader(loader,null,this);
         }
 
     }
 
-    @Override
-    protected void onRestart() {
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        int loader;
-        String sortOrder = preferences.getString(
-                this.getString(R.string.sort_order_key),
-                this.getString(R.string.most_popular)
-        );
-        if (sortOrder.equals(this.getString(R.string.most_popular))){
-            Log.d(LOG_TAG,"sort by most popular");
-            loader = TASK_LOADER_POP;
-            //loadJSON();
-            getSupportLoaderManager().initLoader(loader, null,this);
-        }else if (sortOrder.equals(this.getString(R.string.favorite))){
-            Log.d(LOG_TAG, "sort by favorite movies");
-            loader = TASK_LOADER_ID;
-            getSupportLoaderManager().initLoader(loader, null, this);
-        }
-        else{
-            Log.d(LOG_TAG,"sort by vote average");
-            //loadJSONrated();
-            loader = TASK_LOADER_RAT;
-            getSupportLoaderManager().initLoader(loader,null,this);
-        }
-        super.onRestart();
-    }
 
-    @Override
-    protected void onResume() {
-
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        int loader;
-        String sortOrder = preferences.getString(
-                this.getString(R.string.sort_order_key),
-                this.getString(R.string.most_popular)
-        );
-        if (sortOrder.equals(this.getString(R.string.most_popular))){
-            Log.d(LOG_TAG,"sort by most popular");
-            loader = TASK_LOADER_POP;
-            getSupportLoaderManager().initLoader(loader, null,this);
-        }else if (sortOrder.equals(this.getString(R.string.favorite))){
-            Log.d(LOG_TAG, "sort by favorite movies");
-            loader = TASK_LOADER_ID;
-            getSupportLoaderManager().initLoader(loader, null, this);
-        }
-        else{
-            Log.d(LOG_TAG,"sort by vote average");
-            loader = TASK_LOADER_RAT;
-            getSupportLoaderManager().initLoader(loader,null,this);
-        }
-        super.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        //positionIndex = layoutManager.findFirstCompletelyVisibleItemPosition();
-        //View startView = mRecyclerView.getChildAt(0);
-        //topView = (startView == null) ? 0 : startView.getTop() - mRecyclerView.getPaddingTop();
-
-    }
-
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        final int[] position = savedInstanceState.getIntArray("ARTICLE_SCROLL_POSITION");
-        if(position != null)
-
-        mListState = savedInstanceState.getParcelable(BUNDLE_RECYCLER_STATE);
-
-    }
 
 
     @Override
     public Loader<Cursor> onCreateLoader(final int id, Bundle args) {
-        CursorLoader cursorLoader;
-        if (dataDownloaded) {
-            cursorLoader = new CursorLoader(getActivity(),
-                    null, TABLE_PROJECTION, null, null, null);
-            cursorLoader.deliverResult(oldCursor);
-        } else {
 
         switch (id) {
             case TASK_LOADER_ID:
@@ -336,42 +210,44 @@ public class MainActivity extends AppCompatActivity implements
 
             default:
                 throw new RuntimeException("Loader Not Implemented: " + id);
+
         }
-        }
-        return cursorLoader;
     }
 
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-        //costumCursorAdapter.updateList(data);
-        if (costumCursorAdapter!=null){
-            data.moveToPosition(0);
-            costumCursorAdapter.swapCursor(data);
-            showDataView();
-            dataDownloaded = true;
-        } else {
-            Log.v(LOG_TAG,"on load finished, adapter is null");
-        }
-        //if (mPosition == RecyclerView.NO_POSITION) mPosition = 0;
-        //mRecyclerView.smoothScrollToPosition(mPosition);
-        //costumCursorAdapter.notifyDataSetChanged();
+
+        costumCursorAdapter.swapCursor(data);
+
+        if (data.getCount() != 0)showDataView();
+
     }
 
     @Override
     public void onLoaderReset(Loader<Cursor> loader) {
-        //costumCursorAdapter.updateList(null);
 
-        if (costumCursorAdapter != null){
             costumCursorAdapter.swapCursor(null);
-        }else {
-            Log.v(LOG_TAG,"on loader reset, adapter is null");
-        }
 
     }
 
     @Override
-    public void onCursorClickListener(int movie_id) {
+    public void onCursorClickListener(long movie_id) {
         Intent newIntent = new Intent(MainActivity.this, DetailActivity.class);
-        newIntent.putExtra(EXTRA_ID, movie_id);
+        if (loader == TASK_LOADER_POP){
+            Uri clickedUri = MovieContract.FavoriteEntry.buildMoviePopUriWithID(movie_id);
+            newIntent.setData(clickedUri);
+            newIntent.putExtra("loader", loader);
+            startActivity(newIntent);
+        } else if (loader == TASK_LOADER_RAT){
+            Uri clickedUri = MovieContract.FavoriteEntry.buildMovieRatUriWithID(movie_id);
+            newIntent.setData(clickedUri);
+            newIntent.putExtra("loader", loader);
+            startActivity(newIntent);
+        }else {
+            Uri clickedUri = MovieContract.FavoriteEntry.buildMovieFavUriWithID(movie_id);
+            newIntent.setData(clickedUri);
+            newIntent.putExtra("loader", loader);
+            startActivity(newIntent);
+        }
     }
 
 
