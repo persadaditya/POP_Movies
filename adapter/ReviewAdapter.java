@@ -17,11 +17,11 @@ import java.util.List;
  */
 
 public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ViewHolder> {
-    private Context context;
+    private Context mContext;
     private List<Review> reviewList;
 
     public ReviewAdapter(Context context, List<Review> reviewList) {
-        this.context = context;
+        this.mContext = context;
         this.reviewList = reviewList;
 
     }
@@ -29,7 +29,7 @@ public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ViewHolder
 
     @Override
     public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.trailer_card,parent,false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.review_card,parent,false);
         return new ViewHolder(view);
     }
 

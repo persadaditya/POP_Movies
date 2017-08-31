@@ -30,7 +30,6 @@ import com.app.phedev.popmovie.adapter.ReviewAdapter;
 import com.app.phedev.popmovie.adapter.TrailerAdapter;
 import com.app.phedev.popmovie.data.MovieContract;
 import com.app.phedev.popmovie.data.MovieDBHelper;
-import com.app.phedev.popmovie.data.MovieProvider;
 import com.app.phedev.popmovie.pojo.Movie;
 import com.app.phedev.popmovie.pojo.Review;
 import com.app.phedev.popmovie.pojo.ReviewResponse;
@@ -60,16 +59,6 @@ public class DetailActivity extends AppCompatActivity implements
     private Movie favorite;
     private final AppCompatActivity activity = DetailActivity.this;
     private static final int LOADER_DET = 500;
-    private MovieProvider movieProvider;
-
-    public static final String[] TABLE_PROJECTION = {
-            MovieContract.FavoriteEntry.COLUMN_MOVIEID,
-            MovieContract.FavoriteEntry.COLUMN_TITLE,
-            MovieContract.FavoriteEntry.COLUMN_DATE,
-            MovieContract.FavoriteEntry.COLUMN_USERRATING,
-            MovieContract.FavoriteEntry.COLUMN_POSTER_PATH,
-            MovieContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS
-    };
 
     public static final int INDEX_IDMOVIE = 1;
     public static final int INDEX_TITLE = 2;
@@ -80,7 +69,7 @@ public class DetailActivity extends AppCompatActivity implements
 
     Movie movie;
     int movie_id;
-    String thumbnail, movieName, synopsis, dateOfRelease, ratings;
+    String thumbnail, movieName, synopsis, dateOfRelease;
     FloatingActionButton fabut;
     private Uri mUri;
 
@@ -92,6 +81,8 @@ public class DetailActivity extends AppCompatActivity implements
 
         mUri = getIntent().getData();
         if (mUri == null) throw new NullPointerException("URI for DetailActivity cannot be null");
+
+        movie_id = Integer.parseInt(mUri.getPathSegments().get(1));
 
 
         Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
@@ -110,6 +101,8 @@ public class DetailActivity extends AppCompatActivity implements
 
         getSupportLoaderManager().initLoader(LOADER_DET,null,this);
 
+        initViews();
+        initViews2();
     }
 
 
@@ -147,7 +140,7 @@ public class DetailActivity extends AppCompatActivity implements
 
         recyclerView1 = (RecyclerView)findViewById(R.id.trailerList);
         trailerList = new ArrayList<>();
-        trailerAdapter = new TrailerAdapter(this, trailerList);
+        trailerAdapter = new TrailerAdapter(getApplicationContext(), trailerList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView1.setLayoutManager(layoutManager);
         loadJSON();
@@ -156,7 +149,7 @@ public class DetailActivity extends AppCompatActivity implements
     private void initViews2(){
         recyclerView2 = (RecyclerView)findViewById(R.id.reviewList);
         reviewList = new ArrayList<>();
-        reviewAdapter = new ReviewAdapter(this, reviewList);
+        reviewAdapter = new ReviewAdapter(getApplicationContext(), reviewList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView2.setLayoutManager(layoutManager);
         loadJSON2();
@@ -178,7 +171,6 @@ public class DetailActivity extends AppCompatActivity implements
                     recyclerView1.setAdapter(new TrailerAdapter(getApplicationContext(),trailers));
                     recyclerView1.smoothScrollToPosition(0);
                     trailerAdapter.notifyDataSetChanged();
-
                 }
 
                 @Override
@@ -227,7 +219,6 @@ public class DetailActivity extends AppCompatActivity implements
     }
 
 
-
     Boolean changeFav = false;
 
 
@@ -239,13 +230,12 @@ public class DetailActivity extends AppCompatActivity implements
             SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
             editor.putBoolean("Favorite Added", true);
             editor.apply();
-            //saveFavorite();
+            saveFavorite();
             //it still error whenever I change by setImageResources or setBackground
             //fabut.setBackgroundColor(Color.YELLOW);
             Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
 
         }else {
-            int movie_id = getIntent().getExtras().getInt("id");
             movieDBHelper = new MovieDBHelper(DetailActivity.this);
             movieDBHelper.deleteFavorite(movie_id);
             SharedPreferences.Editor editor = getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
@@ -267,7 +257,7 @@ public class DetailActivity extends AppCompatActivity implements
         favorite.setRelease(dateOfRelease);
         favorite.setVoteAvg(rate);
         favorite.setPlot(synopsis);
-        //movieDBHelper.addFavorite(favorite);
+        movieDBHelper.addFavorite(favorite);
 
         ContentValues values = new ContentValues();
         values.put(MovieContract.FavoriteEntry.COLUMN_MOVIEID, movie.getId());
@@ -309,16 +299,13 @@ public class DetailActivity extends AppCompatActivity implements
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
         boolean cursorHasValidData = false;
         if (data != null && data.moveToFirst()) {
-            /* We have valid data, continue on to bind the data to the UI */
             cursorHasValidData = true;
         }
 
         if (!cursorHasValidData) {
-            /* No data to display, simply return and do nothing */
             return;
         }
 
-        movie_id = data.getInt(INDEX_IDMOVIE);
         movieNames.setText(data.getString(INDEX_TITLE));
         Double rate = data.getDouble(INDEX_RATING);
         userRating.setText(String.valueOf(rate));
@@ -330,8 +317,6 @@ public class DetailActivity extends AppCompatActivity implements
                 .load(poster)
                 .into(posterImg);
 
-        initViews();
-        initViews2();
 
     }
 
