@@ -3,8 +3,11 @@ package com.app.phedev.popmovie.activity;
 import android.content.ContentValues;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
+import android.os.PersistableBundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.CollapsingToolbarLayout;
@@ -14,7 +17,6 @@ import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.preference.PreferenceManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
@@ -29,8 +31,6 @@ import com.app.phedev.popmovie.R;
 import com.app.phedev.popmovie.adapter.ReviewAdapter;
 import com.app.phedev.popmovie.adapter.TrailerAdapter;
 import com.app.phedev.popmovie.data.MovieContract;
-import com.app.phedev.popmovie.data.MovieDBHelper;
-import com.app.phedev.popmovie.pojo.Movie;
 import com.app.phedev.popmovie.pojo.Review;
 import com.app.phedev.popmovie.pojo.ReviewResponse;
 import com.app.phedev.popmovie.pojo.Trailer;
@@ -55,9 +55,6 @@ public class DetailActivity extends AppCompatActivity implements
     private TrailerAdapter trailerAdapter;
     private List<Review> reviewList;
     private ReviewAdapter reviewAdapter;
-    private MovieDBHelper movieDBHelper;
-    private Movie favorite;
-    private final AppCompatActivity activity = DetailActivity.this;
     private static final int LOADER_DET = 500;
 
     public static final int INDEX_IDMOVIE = 1;
@@ -67,9 +64,7 @@ public class DetailActivity extends AppCompatActivity implements
     public static final int INDEX_POSTER = 5;
     public static final int INDEX_PLOT = 6;
 
-    Movie movie;
     int movie_id;
-    String thumbnail, movieName, synopsis, dateOfRelease;
     FloatingActionButton fabut;
     private Uri mUri;
 
@@ -79,16 +74,20 @@ public class DetailActivity extends AppCompatActivity implements
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail);
 
+        if (savedInstanceState != null){
+            trailerList = savedInstanceState.getParcelableArrayList("TrailerData");
+            reviewList = savedInstanceState.getParcelableArrayList("ReviewData");
+        }
+
         mUri = getIntent().getData();
         if (mUri == null) throw new NullPointerException("URI for DetailActivity cannot be null");
 
-        movie_id = Integer.parseInt(mUri.getPathSegments().get(1));
-
+        movie_id = Integer.parseInt(mUri.getPathSegments().get(INDEX_IDMOVIE));
 
         Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setTitle("Detail Movie");
+        getSupportActionBar().setTitle("");
 
         initCollapsingToolbar();
 
@@ -97,7 +96,7 @@ public class DetailActivity extends AppCompatActivity implements
         movieNames = (TextView)findViewById(R.id.title);
         userRating = (TextView)findViewById(R.id.rating);
         releaseDate = (TextView)findViewById(R.id.date);
-
+        fabut = (FloatingActionButton)findViewById(R.id.fab);
 
         getSupportLoaderManager().initLoader(LOADER_DET,null,this);
 
@@ -105,7 +104,12 @@ public class DetailActivity extends AppCompatActivity implements
         initViews2();
     }
 
-
+    @Override
+    public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
+        super.onSaveInstanceState(outState, outPersistentState);
+        outState.putParcelableArrayList("TrailerData", (ArrayList<? extends Parcelable>) trailerList);
+        outState.putParcelableArrayList("ReviewData", (ArrayList<? extends Parcelable>) reviewList);
+    }
 
     private void initCollapsingToolbar() {
         final CollapsingToolbarLayout collapsingToolbarLayout =
@@ -124,7 +128,7 @@ public class DetailActivity extends AppCompatActivity implements
                     scrollRange = appBarLayout.getTotalScrollRange();
                 }
                 if (scrollRange +verticalOffset == 0){
-                    collapsingToolbarLayout.setTitle("pop movie");
+                    collapsingToolbarLayout.setTitle("Detail Movie");
                     isShow = true;
                 }else if (isShow){
                     collapsingToolbarLayout.setTitle("");
@@ -141,7 +145,8 @@ public class DetailActivity extends AppCompatActivity implements
         recyclerView1 = (RecyclerView)findViewById(R.id.trailerList);
         trailerList = new ArrayList<>();
         trailerAdapter = new TrailerAdapter(getApplicationContext(), trailerList);
-        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
+        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext(),
+                LinearLayoutManager.HORIZONTAL, false);
         recyclerView1.setLayoutManager(layoutManager);
         loadJSON();
     }
@@ -219,61 +224,18 @@ public class DetailActivity extends AppCompatActivity implements
     }
 
 
-    Boolean changeFav = false;
-
-
-    public void clickFav(View view) {
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-        changeFav = !changeFav;
-
-        if (changeFav = true){
-            SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
-            editor.putBoolean("Favorite Added", true);
-            editor.apply();
-            saveFavorite();
-            //it still error whenever I change by setImageResources or setBackground
-            //fabut.setBackgroundColor(Color.YELLOW);
-            Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
-
-        }else {
-            movieDBHelper = new MovieDBHelper(DetailActivity.this);
-            movieDBHelper.deleteFavorite(movie_id);
-            SharedPreferences.Editor editor = getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
-            editor.putBoolean("Favorite Removed", false);
-            editor.apply();
-            //fabut.setBackgroundColor(Color.parseColor("#FF4081"));
-            Snackbar.make(view, "Removed from favorite", Snackbar.LENGTH_SHORT).show();
-        }
-    }
-
-    public void saveFavorite(){
-        movieDBHelper = new MovieDBHelper(activity);
-        favorite = new Movie();
-        Double rate = movie.getVoteAvg();
-
-        favorite.setId(movie_id);
-        favorite.setOriTitle(movieName);
-        favorite.setPosterPath(thumbnail);
-        favorite.setRelease(dateOfRelease);
-        favorite.setVoteAvg(rate);
-        favorite.setPlot(synopsis);
-        movieDBHelper.addFavorite(favorite);
-
+    public void saveFavorite(Cursor cursor){
         ContentValues values = new ContentValues();
-        values.put(MovieContract.FavoriteEntry.COLUMN_MOVIEID, movie.getId());
-        values.put(MovieContract.FavoriteEntry.COLUMN_TITLE, movie.getOriTitle());
-        values.put(MovieContract.FavoriteEntry.COLUMN_DATE, movie.getRelease());
-        values.put(MovieContract.FavoriteEntry.COLUMN_USERRATING, movie.getVoteAvg());
-        values.put(MovieContract.FavoriteEntry.COLUMN_POSTER_PATH, movie.getPosterPath());
-        values.put(MovieContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS, movie.getPlot());
+        values.put(MovieContract.FavoriteEntry.COLUMN_MOVIEID, cursor.getInt(INDEX_IDMOVIE));
+        values.put(MovieContract.FavoriteEntry.COLUMN_TITLE, cursor.getString(INDEX_TITLE));
+        values.put(MovieContract.FavoriteEntry.COLUMN_DATE, cursor.getString(INDEX_DATE));
+        values.put(MovieContract.FavoriteEntry.COLUMN_USERRATING, cursor.getDouble(INDEX_RATING));
+        values.put(MovieContract.FavoriteEntry.COLUMN_POSTER_PATH, cursor.getString(INDEX_POSTER));
+        values.put(MovieContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS, cursor.getString(INDEX_PLOT));
 
-        Uri uri = getContentResolver().insert(MovieContract.FavoriteEntry.CONTENT_URI, values);
+        Uri uri = MovieContract.FavoriteEntry.CONTENT_URI;
 
-        if (uri != null){
-            Toast.makeText(getBaseContext(), uri.toString(),Toast.LENGTH_SHORT).show();
-        }
-
-        finish();
+        getContentResolver().insert(uri, values);
     }
 
 
@@ -291,12 +253,10 @@ public class DetailActivity extends AppCompatActivity implements
             default:
                 throw new RuntimeException("Loader Not Implemented: " + id);
         }
-
-
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<Cursor> loader, final Cursor data) {
         boolean cursorHasValidData = false;
         if (data != null && data.moveToFirst()) {
             cursorHasValidData = true;
@@ -317,6 +277,17 @@ public class DetailActivity extends AppCompatActivity implements
                 .load(poster)
                 .into(posterImg);
 
+        fabut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
+                editor.putBoolean("Favorite Added", true);
+                editor.apply();
+                saveFavorite(data);
+                fabut.setBackgroundColor(Color.YELLOW);
+                Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
+            }
+        });
 
     }
 

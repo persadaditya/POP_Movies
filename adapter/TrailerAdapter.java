@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import com.app.phedev.popmovie.R;
 import com.app.phedev.popmovie.pojo.Trailer;
+import com.bumptech.glide.Glide;
 
 import java.util.List;
 
@@ -39,6 +40,13 @@ public class TrailerAdapter extends RecyclerView.Adapter<TrailerAdapter.myViewHo
     @Override
     public void onBindViewHolder(TrailerAdapter.myViewHolder holder, int position) {
         holder.title.setText(trailerList.get(position).getName());
+
+        String keyPoster = trailerList.get(position).getKey();
+        String imgPosterPath = "http://img.youtube.com/vi/" + keyPoster + "/hqdefault.jpg";
+
+        Glide.with(context)
+                .load(imgPosterPath)
+                .into(holder.thmbnail);
 
     }
 
