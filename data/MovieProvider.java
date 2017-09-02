@@ -296,6 +296,14 @@ public class MovieProvider extends ContentProvider {
 
                 break;
 
+            case CODE_MOVIE_ID_FAV:
+                String id = uri.getPathSegments().get(1);
+                numRowsDeleted = mOpenHelper.getWritableDatabase().delete(
+                        TABLE_NAME,
+                        "_id=?",
+                        new String[]{id});
+                break;
+
             default:
                 throw new UnsupportedOperationException("Unknown uri: " + uri);
         }

@@ -3,7 +3,6 @@ package com.app.phedev.popmovie.activity;
 import android.content.ContentValues;
 import android.content.SharedPreferences;
 import android.database.Cursor;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -56,6 +55,7 @@ public class DetailActivity extends AppCompatActivity implements
     private List<Review> reviewList;
     private ReviewAdapter reviewAdapter;
     private static final int LOADER_DET = 500;
+    private static final int FAV_LOADER = 100;
 
     public static final int INDEX_IDMOVIE = 1;
     public static final int INDEX_TITLE = 2;
@@ -64,7 +64,7 @@ public class DetailActivity extends AppCompatActivity implements
     public static final int INDEX_POSTER = 5;
     public static final int INDEX_PLOT = 6;
 
-    int movie_id;
+    int movie_id, categories;
     FloatingActionButton fabut;
     private Uri mUri;
 
@@ -83,6 +83,8 @@ public class DetailActivity extends AppCompatActivity implements
         if (mUri == null) throw new NullPointerException("URI for DetailActivity cannot be null");
 
         movie_id = Integer.parseInt(mUri.getPathSegments().get(INDEX_IDMOVIE));
+        categories = getIntent().getIntExtra("loader",100);
+
 
         Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -171,7 +173,7 @@ public class DetailActivity extends AppCompatActivity implements
             Call<TrailerResponse> call = apiService.getMovieTrailer(movie_id, BuildConfig.THE_MOVIE_DB_API);
             call.enqueue(new Callback<TrailerResponse>() {
                 @Override
-                public void onResponse( Call<TrailerResponse> call,  Response<TrailerResponse> response) {
+                public void onResponse(@NonNull Call<TrailerResponse> call, @NonNull Response<TrailerResponse> response) {
                     List<Trailer> trailers = response.body().getResults();
                     recyclerView1.setAdapter(new TrailerAdapter(getApplicationContext(),trailers));
                     recyclerView1.smoothScrollToPosition(0);
@@ -236,6 +238,19 @@ public class DetailActivity extends AppCompatActivity implements
         Uri uri = MovieContract.FavoriteEntry.CONTENT_URI;
 
         getContentResolver().insert(uri, values);
+        getContentResolver().notifyChange(uri, null);
+    }
+
+    public void deleteFavorite(Cursor cursor){
+        int id = cursor.getInt(0);
+        String stringId = Integer.toString(id);
+        Uri uri = MovieContract.FavoriteEntry.CONTENT_URI;
+        uri = uri.buildUpon().appendPath(stringId).build();
+
+        getContentResolver().delete(uri,null,null);
+        Toast.makeText(getApplicationContext(),"Favorites Deleted",Toast.LENGTH_SHORT).show();
+        finish();
+
     }
 
 
@@ -277,14 +292,26 @@ public class DetailActivity extends AppCompatActivity implements
                 .load(poster)
                 .into(posterImg);
 
+        if (categories==FAV_LOADER){
+            fabut.setImageResource(R.drawable.delete1600);
+            fabut.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
+                    editor.putBoolean("Favorite Added", true);
+                    editor.apply();
+                    deleteFavorite(data);
+                }
+            });
+        }else
         fabut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                fabut.setImageResource(R.drawable.favicon);
                 SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
                 editor.putBoolean("Favorite Added", true);
                 editor.apply();
                 saveFavorite(data);
-                fabut.setBackgroundColor(Color.YELLOW);
                 Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
             }
         });
