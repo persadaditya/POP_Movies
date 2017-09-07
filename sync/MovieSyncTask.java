@@ -3,6 +3,7 @@ package com.app.phedev.popmovie.sync;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -44,7 +45,7 @@ public class MovieSyncTask {
             Call<MovieResponse> call = apiService.getPopularMovies(BuildConfig.THE_MOVIE_DB_API);
             call.enqueue(new Callback<MovieResponse>() {
                 @Override
-                public void onResponse(Call<MovieResponse> call, Response<MovieResponse> response) {
+                public void onResponse(@NonNull Call<MovieResponse> call, @NonNull Response<MovieResponse> response) {
                     List<Movie> movies = response.body().getResult();
                     ContentValues[] contentValues = new ContentValues[movies.size()];
                     for (int i =0; i<movies.size(); i++) {
@@ -102,7 +103,7 @@ public class MovieSyncTask {
             Call<MovieResponse> call = apiService.getTopRatedMovies(BuildConfig.THE_MOVIE_DB_API);
             call.enqueue(new Callback<MovieResponse>() {
                 @Override
-                public void onResponse(Call<MovieResponse> call, Response<MovieResponse> response) {
+                public void onResponse(@NonNull Call<MovieResponse> call, @NonNull Response<MovieResponse> response) {
                     List<com.app.phedev.popmovie.pojo.Movie> movies = response.body().getResult();
                     ContentValues[] contentValues = new ContentValues[movies.size()];
                     for (int i =0; i<movies.size(); i++) {
