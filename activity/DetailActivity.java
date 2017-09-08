@@ -3,14 +3,13 @@ package com.app.phedev.popmovie.activity;
 import android.content.ContentValues;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.support.annotation.NonNull;
-import android.support.design.widget.AppBarLayout;
-import android.support.design.widget.CollapsingToolbarLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.LoaderManager;
@@ -32,6 +31,7 @@ import com.app.phedev.popmovie.R;
 import com.app.phedev.popmovie.adapter.ReviewAdapter;
 import com.app.phedev.popmovie.adapter.TrailerAdapter;
 import com.app.phedev.popmovie.data.MovieContract;
+import com.app.phedev.popmovie.data.MovieDBHelper;
 import com.app.phedev.popmovie.pojo.Review;
 import com.app.phedev.popmovie.pojo.ReviewResponse;
 import com.app.phedev.popmovie.pojo.Trailer;
@@ -57,6 +57,7 @@ public class DetailActivity extends AppCompatActivity implements
     private ArrayList<Review> reviewList;
     private ReviewAdapter reviewAdapter;
     private NestedScrollView nestedScrollView;
+    private MovieDBHelper mOpenHelper;
     private static final int LOADER_DET = 500;
     private static final int FAV_LOADER = 100;
 
@@ -74,6 +75,7 @@ public class DetailActivity extends AppCompatActivity implements
     int movie_id, categories;
     FloatingActionButton fabut;
     private Uri mUri;
+    private Boolean isFavorited = false;
 
 
     @Override
@@ -88,28 +90,28 @@ public class DetailActivity extends AppCompatActivity implements
         movie_id = Integer.parseInt(mUri.getPathSegments().get(INDEX_IDMOVIE));
         categories = getIntent().getIntExtra("loader",100);
 
+        mOpenHelper = new MovieDBHelper(getApplicationContext());
         initActionbar();
-        //initCollapsingToolbar();
 
         if(savedInstanceState != null && savedInstanceState.containsKey(BUNDLE_TRAILER)) {
-            Log.d(TAG, "onCreate: get saved instance state with Data Trailer");
+            Log.d(TAG, "ON CREATE: get saved instance state with DATA TRAILER");
             trailerList = savedInstanceState.getParcelableArrayList(BUNDLE_TRAILER);
         } else {
-            Log.d(TAG, "null data: get data trailer from internet");
+            Log.d(TAG, "NULL DATA: get data trailer from internet");
             trailerList = new ArrayList<>();
             new getTrailer().execute();
         }
         if (savedInstanceState != null && savedInstanceState.containsKey(BUNDLE_REVIEW)) {
-            Log.d(TAG,"onCreate : get saved instance state with Data Review");
+            Log.d(TAG,"ON CREATE: get saved instance state with DATA REVIEW");
             reviewList = savedInstanceState.getParcelableArrayList(BUNDLE_REVIEW);
         }else {
-            Log.d(TAG, "null data: get data review from internet");
+            Log.d(TAG, "NULL DATA: get data review from internet");
             reviewList = new ArrayList<>();
             new getReview().execute();
         }
 
         if (savedInstanceState != null && savedInstanceState.containsKey(BUNDLE_SCROLL)){
-            Log.d(TAG, "get data scroll position");
+            Log.d(TAG, "GET DATA SCROLL POSITION");
             final int[]scrollPosition = savedInstanceState.getIntArray(BUNDLE_SCROLL);
             if (scrollPosition != null && scrollPosition.length==2){
                 nestedScrollView.post(new Runnable() {
@@ -166,35 +168,6 @@ public class DetailActivity extends AppCompatActivity implements
         }
     }
 
-    private void initCollapsingToolbar() {
-        final CollapsingToolbarLayout collapsingToolbarLayout =
-                (CollapsingToolbarLayout)findViewById(R.id.colapsing_toolbar);
-        collapsingToolbarLayout.setTitle("");
-        AppBarLayout appBarLayout = (AppBarLayout)findViewById(R.id.appbar);
-        appBarLayout.setExpanded(true);
-
-        appBarLayout.addOnOffsetChangedListener(new AppBarLayout.OnOffsetChangedListener() {
-            boolean isShow = false;
-            int scrollRange = -1;
-
-            @Override
-            public void onOffsetChanged(AppBarLayout appBarLayout, int verticalOffset) {
-                if (scrollRange == -1){
-                    scrollRange = appBarLayout.getTotalScrollRange();
-                }
-                if (scrollRange +verticalOffset == 0){
-                    collapsingToolbarLayout.setTitle("Detail Movie");
-                    isShow = true;
-                }else if (isShow){
-                    collapsingToolbarLayout.setTitle("");
-                    isShow = false;
-                }
-
-            }
-        });
-
-    }
-
     private void initActionbar(){
         Toolbar toolbar = (Toolbar)findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -203,7 +176,6 @@ public class DetailActivity extends AppCompatActivity implements
     }
 
     private void initViews(){
-        //trailerList = new ArrayList<>();
         trailerAdapter = new TrailerAdapter(getApplicationContext(), trailerList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext(),
                 LinearLayoutManager.HORIZONTAL, false);
@@ -212,7 +184,6 @@ public class DetailActivity extends AppCompatActivity implements
     }
 
     private void initViews2(){
-        //reviewList = new ArrayList<>();
         reviewAdapter = new ReviewAdapter(getApplicationContext(), reviewList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView2.setLayoutManager(layoutManager);
@@ -320,8 +291,6 @@ public class DetailActivity extends AppCompatActivity implements
         uri = uri.buildUpon().appendPath(stringId).build();
 
         getContentResolver().delete(uri,null,null);
-        finish();
-
     }
 
 
@@ -363,31 +332,53 @@ public class DetailActivity extends AppCompatActivity implements
                 .load(poster)
                 .into(posterImg);
 
+        //compare data whether it's in favorites table or not
+        //I found solution from https://stackoverflow.com/questions/12919686/compare-sqlite-with-string
+        final SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        String table_name = MovieContract.FavoriteEntry.TABLE_NAME;
+        String column_name = MovieContract.FavoriteEntry.COLUMN_MOVIEID;
+        String idMovie = String.valueOf(movie_id);
+        String query = "SELECT * FROM " + table_name +" WHERE "+ column_name + "=" + idMovie;
+        Cursor cursor = db.rawQuery(query, null);
+
         if (categories==FAV_LOADER){
             fabut.setImageResource(R.drawable.delete1600);
             fabut.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
                     SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
-                    editor.putBoolean("Favorite Added", true);
+                    editor.putBoolean("Favorite Added", false);
                     editor.apply();
                     deleteFavorite(data);
-                    Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(),"Remove From Favorite", Toast.LENGTH_LONG).show();
+                    finish();
                 }
             });
-        }else
-        fabut.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                fabut.setImageResource(R.drawable.favicon);
-                SharedPreferences.Editor editor =getSharedPreferences("com.app.phedev.popmovie.activity.DetailActivity", MODE_PRIVATE).edit();
-                editor.putBoolean("Favorite Added", true);
-                editor.apply();
-                saveFavorite(data);
-                Snackbar.make(view, "Added to favorite", Snackbar.LENGTH_SHORT).show();
+        }else if(cursor.getCount() > 0) {
+            cursor.moveToFirst();
+            while(!cursor.isAfterLast()) {
+                // Do whatever you like with the result.
+                fabut.setBackgroundResource(R.drawable.delete1600);
+                fabut.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        deleteFavorite(data);
+                        Snackbar.make(view, "This Movie Already Favorited", Snackbar.LENGTH_SHORT).show();
+                    }
+                });
+                cursor.moveToNext();
             }
-        });
-
+        }else if (cursor.getCount() == 0){
+            fabut.setBackgroundResource(R.drawable.favicon);
+            fabut.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    saveFavorite(data);
+                    Toast.makeText(getApplicationContext(), "Added to Favorite",Toast.LENGTH_LONG).show();
+                    finish();
+                }
+            });
+        }
     }
 
     @Override
